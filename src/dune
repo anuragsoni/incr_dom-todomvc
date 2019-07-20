@@ -1,0 +1,5 @@
+(executable
+ (name main)
+ (preprocess
+  (pps ppx_jane))
+ (libraries core_kernel async_kernel async_js incr_dom))
