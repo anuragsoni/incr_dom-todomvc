@@ -1,5 +1,8 @@
 (executable
  (name main)
  (preprocess
-  (pps ppx_jane))
+  (pps ppx_jane js_of_ocaml-ppx))
+ (js_of_ocaml
+  (flags
+   (:standard --setenv FORCE_DROP_INLINE_TEST=true)))
  (libraries core_kernel async_kernel async_js incr_dom))
