@@ -27,6 +27,7 @@ module Action = struct
     | AddTodo
     | DeleteTodo of int
     | DeleteFinished
+    | CheckAll of bool
     | ToggleSelection of int
     | UpdateInputField of string
   [@@deriving sexp]
@@ -47,6 +48,8 @@ let apply_action ({ Model.id; items; input_field } as model) action _ ~schedule_
         items
     in
     { model with items }
+  | CheckAll finished ->
+    { model with items = List.map ~f:(fun t -> { t with finished }) items }
   | DeleteTodo id -> { model with items = List.filter ~f:(fun t -> t.id <> id) items }
   | DeleteFinished ->
     { model with items = List.filter ~f:(fun t -> not t.finished) items }
@@ -103,17 +106,27 @@ let view (m : Model.t) ~(inject : Action.t -> Vdom.Event.t) =
       ]
   in
   let section =
+    let is_visible = if List.is_empty m.items then `Hidden else `Visible in
     let toggle_all =
+      let all_finished = List.for_all ~f:(fun t -> t.finished) m.items in
       Node.input
-        [ Attr.id "toggle-all"; Attr.class_ "toggle-all"; Attr.type_ "checkbox" ]
+        [ Attr.id "toggle-all"
+        ; Attr.class_ "toggle-all"
+        ; Attr.type_ "checkbox"
+        ; Attr.bool_property "checked" all_finished
+        ; Attr.on_click (fun _ -> inject (Action.CheckAll (not all_finished)))
+        ]
         []
     in
     let label =
       Node.label [ Attr.for_ "toggle-all" ] [ Node.text "Mark all as complete" ]
     in
-    Node.section [ Attr.class_ "main" ] [ toggle_all; label; render_todo_list m.items ]
+    Node.section
+      [ Attr.class_ "main"; Attr.style (Css_gen.visibility is_visible) ]
+      [ toggle_all; label; render_todo_list m.items ]
   in
   let footer =
+    let hidden = List.length m.items = 0 in
     let finished, unfinished = List.partition_tf ~f:(fun t -> t.finished) m.items in
     let count, label =
       match List.length unfinished with
@@ -127,25 +140,17 @@ let view (m : Model.t) ~(inject : Action.t -> Vdom.Event.t) =
         [ Node.strong [] [ Node.text (Int.to_string count) ]; Node.text label ]
     in
     Node.footer
-      [ Attr.class_ "footer" ]
-      (if List.is_empty finished
-      then [ todo_count ]
-      else
-        [ todo_count
-        ; Node.button
-            [ Attr.class_ "clear-completed"
-            ; Attr.on_click (fun _ -> inject DeleteFinished)
-            ]
-            [ Node.text "Clear completed" ]
-        ])
+      [ Attr.class_ "footer"; Attr.bool_property "hidden" hidden ]
+      [ todo_count
+      ; Node.button
+          [ Attr.class_ "clear-completed"
+          ; Attr.bool_property "hidden" (List.is_empty finished)
+          ; Attr.on_click (fun _ -> inject DeleteFinished)
+          ]
+          [ Node.text "Clear completed" ]
+      ]
   in
-  let show_footer = List.length m.items <> 0 in
-  Node.body
-    []
-    [ Node.section
-        [ Attr.class_ "todoapp" ]
-        (if show_footer then [ header; section; footer ] else [ header; section ])
-    ]
+  Node.body [] [ Node.section [ Attr.class_ "todoapp" ] [ header; section; footer ] ]
 ;;
 
 let create model ~old_model:_ ~inject =
