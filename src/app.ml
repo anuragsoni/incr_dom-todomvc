@@ -32,6 +32,27 @@ module Action = struct
   [@@deriving sexp]
 end
 
+let apply_action ({ Model.id; items; input_field } as model) action _ ~schedule_action:_ =
+  match (action : Action.t) with
+  | AddTodo ->
+    if input_field = ""
+    then model
+    else (
+      let todo = Todo.Fields.create ~finished:false ~id ~description:input_field in
+      { Model.id = id + 1; items = todo :: items; input_field = "" })
+  | ToggleSelection id ->
+    let items =
+      List.map
+        ~f:(fun t -> if t.id = id then { t with finished = not t.finished } else t)
+        items
+    in
+    { model with items }
+  | DeleteTodo id -> { model with items = List.filter ~f:(fun t -> t.id <> id) items }
+  | DeleteFinished ->
+    { model with items = List.filter ~f:(fun t -> not t.finished) items }
+  | UpdateInputField input_field -> { model with input_field }
+;;
+
 module State = struct
   type t = unit
 end
@@ -95,8 +116,7 @@ let view (m : Model.t) ~(inject : Action.t -> Vdom.Event.t) =
   let footer =
     let finished, unfinished = List.partition_tf ~f:(fun t -> t.finished) m.items in
     let count, label =
-      let unfinished_count = List.length unfinished in
-      match unfinished_count with
+      match List.length unfinished with
       | 0 -> 0, " items left"
       | 1 -> 1, " item left"
       | c -> c, " items left"
@@ -106,10 +126,9 @@ let view (m : Model.t) ~(inject : Action.t -> Vdom.Event.t) =
         [ Attr.class_ "todo-count" ]
         [ Node.strong [] [ Node.text (Int.to_string count) ]; Node.text label ]
     in
-    let any_finished = List.length finished > 0 in
     Node.footer
       [ Attr.class_ "footer" ]
-      (if not any_finished
+      (if List.is_empty finished
       then [ todo_count ]
       else
         [ todo_count
@@ -127,27 +146,6 @@ let view (m : Model.t) ~(inject : Action.t -> Vdom.Event.t) =
         [ Attr.class_ "todoapp" ]
         (if show_footer then [ header; section; footer ] else [ header; section ])
     ]
-;;
-
-let apply_action ({ Model.id; items; input_field } as model) action _ ~schedule_action:_ =
-  match (action : Action.t) with
-  | AddTodo ->
-    if input_field = ""
-    then model
-    else (
-      let todo = Todo.Fields.create ~finished:false ~id ~description:input_field in
-      { Model.id = id + 1; items = todo :: items; input_field = "" })
-  | ToggleSelection id ->
-    let items =
-      List.map
-        ~f:(fun t -> if t.id = id then { t with finished = not t.finished } else t)
-        items
-    in
-    { model with items }
-  | DeleteTodo id -> { model with items = List.filter ~f:(fun t -> t.id <> id) items }
-  | DeleteFinished ->
-    { model with items = List.filter ~f:(fun t -> not t.finished) items }
-  | UpdateInputField input_field -> { model with input_field }
 ;;
 
 let create model ~old_model:_ ~inject =
