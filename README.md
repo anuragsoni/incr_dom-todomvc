@@ -4,7 +4,7 @@ See it running: https://anuragsoni.github.io/incr_dom-todomvc/
 
 ### TODO:
 
-* Toggle selections for all todo items
-* Allow editing of todo items
-* routing
-* persistent storage
+- [x] Toggle selections for all todo items
+- [ ] Allow editing of todo items
+- [ ] routing
+- [ ] persistent storage
