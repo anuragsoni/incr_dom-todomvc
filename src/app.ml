@@ -26,6 +26,7 @@ module Action = struct
   type t =
     | AddTodo
     | DeleteTodo of int
+    | DeleteFinished
     | ToggleSelection of int
     | UpdateInputField of string
   [@@deriving sexp]
@@ -47,6 +48,7 @@ let view (m : Model.t) ~(inject : Action.t -> Vdom.Event.t) =
           [ Attr.class_ "view" ]
           [ Node.input
               [ Attr.class_ "toggle"
+              ; Attr.bool_property "checked" finished
               ; Attr.type_ "checkbox"
               ; Attr.on_click (fun _ev -> inject (Action.ToggleSelection id))
               ]
@@ -79,21 +81,52 @@ let view (m : Model.t) ~(inject : Action.t -> Vdom.Event.t) =
           []
       ]
   in
-  let todo_app =
-    let section =
-      let toggle_all =
-        Node.input
-          [ Attr.id "toggle-all"; Attr.class_ "toggle-all"; Attr.type_ "checkbox" ]
-          []
-      in
-      let label =
-        Node.label [ Attr.for_ "toggle-all" ] [ Node.text "Mark all as complete" ]
-      in
-      Node.section [ Attr.class_ "main" ] [ toggle_all; label; render_todo_list m.items ]
+  let section =
+    let toggle_all =
+      Node.input
+        [ Attr.id "toggle-all"; Attr.class_ "toggle-all"; Attr.type_ "checkbox" ]
+        []
     in
-    Node.section [ Attr.class_ "todoapp" ] [ header; section ]
+    let label =
+      Node.label [ Attr.for_ "toggle-all" ] [ Node.text "Mark all as complete" ]
+    in
+    Node.section [ Attr.class_ "main" ] [ toggle_all; label; render_todo_list m.items ]
   in
-  Node.body [] [ todo_app ]
+  let footer =
+    let finished, unfinished = List.partition_tf ~f:(fun t -> t.finished) m.items in
+    let count, label =
+      let unfinished_count = List.length unfinished in
+      match unfinished_count with
+      | 0 -> 0, " items left"
+      | 1 -> 1, " item left"
+      | c -> c, " items left"
+    in
+    let todo_count =
+      Node.span
+        [ Attr.class_ "todo-count" ]
+        [ Node.strong [] [ Node.text (Int.to_string count) ]; Node.text label ]
+    in
+    let any_finished = List.length finished > 0 in
+    Node.footer
+      [ Attr.class_ "footer" ]
+      (if not any_finished
+      then [ todo_count ]
+      else
+        [ todo_count
+        ; Node.button
+            [ Attr.class_ "clear-completed"
+            ; Attr.on_click (fun _ -> inject DeleteFinished)
+            ]
+            [ Node.text "Clear completed" ]
+        ])
+  in
+  let show_footer = List.length m.items <> 0 in
+  Node.body
+    []
+    [ Node.section
+        [ Attr.class_ "todoapp" ]
+        (if show_footer then [ header; section; footer ] else [ header; section ])
+    ]
 ;;
 
 let apply_action ({ Model.id; items; input_field } as model) action _ ~schedule_action:_ =
@@ -112,6 +145,8 @@ let apply_action ({ Model.id; items; input_field } as model) action _ ~schedule_
     in
     { model with items }
   | DeleteTodo id -> { model with items = List.filter ~f:(fun t -> t.id <> id) items }
+  | DeleteFinished ->
+    { model with items = List.filter ~f:(fun t -> not t.finished) items }
   | UpdateInputField input_field -> { model with input_field }
 ;;
 
