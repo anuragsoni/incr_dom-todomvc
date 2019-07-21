@@ -2,4 +2,9 @@
 
 See it running: https://anuragsoni.github.io/incr_dom-todomvc/
 
-### Not finished yet
+### TODO:
+
+* Toggle selections for all todo items
+* Allow editing of todo items
+* routing
+* persistent storage
