@@ -72,7 +72,7 @@ let view (m : Model.t) ~(inject : Action.t -> Vdom.Event.t) =
       ; Node.input
           [ Attr.class_ "new-todo"
           ; Attr.placeholder "What needs to be done?"
-          ; Attr.value m.input_field
+          ; Attr.string_property "value" m.input_field
           ; Attr.autofocus true
           ; Attr.on_input (fun _ev text -> inject (Action.UpdateInputField text))
           ; Attr.on_keydown (fun e ->
